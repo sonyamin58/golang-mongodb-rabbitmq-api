@@ -6,7 +6,7 @@
 |-----------|------------|
 | Web Framework | Go Echo v4 (Labstack) |
 | Database | Oracle DB (via GORM Oracle Driver) |
-| Message Broker | Celery with Redis broker |
+| Message Broker | Machinery with Redis broker |
 | Authentication | JWT (HS256, 24h expiry) |
 | Language | Go 1.21+ |
 
@@ -150,7 +150,7 @@ type JWTClaims struct {
     "balance_before": 0.00,
     "balance_after": 1000000.00,
     "reference_id": "TOPUP-20260325-001",
-    "celery_task_id": "abc-123-xyz",
+    "machinery_task_id": "abc-123-xyz",
     "status": "pending",
     "created_at": "2026-03-25T14:30:00Z"
   }
@@ -194,7 +194,7 @@ type JWTClaims struct {
     "balance_before": 1000000.00,
     "balance_after": 497500.00,
     "reference_id": "WD-20260325-001",
-    "celery_task_id": "def-456-xyz",
+    "machinery_task_id": "def-456-xyz",
     "status": "pending",
     "created_at": "2026-03-25T14:35:00Z"
   }
@@ -234,7 +234,7 @@ type JWTClaims struct {
     "to_account_number": "9880987654321",
     "to_account_name": "Jane Doe",
     "reference_id": "TRF-20260325-001",
-    "celery_task_id": "ghi-789-xyz",
+    "machinery_task_id": "ghi-789-xyz",
     "status": "pending",
     "created_at": "2026-03-25T14:40:00Z"
   }
@@ -287,7 +287,7 @@ type JWTClaims struct {
     "reference_id": "TRF-20260325-001",
     "note": "Payment for lunch",
     "status": "completed",
-    "celery_task_id": "ghi-789-xyz",
+    "machinery_task_id": "ghi-789-xyz",
     "created_at": "2026-03-25T14:40:00Z",
     "updated_at": "2026-03-25T14:40:01Z"
   }
@@ -323,7 +323,7 @@ type JWTClaims struct {
 
 ---
 
-## Celery Integration
+## Machinery Integration
 
 ### Queue Structure
 
@@ -337,11 +337,11 @@ notification -> send_notification task
 ### Processing Flow
 
 1. Request -> validate -> create transaction (status: `pending`)
-2. Publish Celery task to Redis broker
+2. Publish Machinery task to Redis broker
 3. Worker picks up task -> processes -> updates transaction status
 4. Send notification task
 
-### Celery Tasks
+### Machinery Tasks
 
 ```python
 @app.task(name='tasks.process_topup')
@@ -368,4 +368,4 @@ def send_notification(user_id: int, message: str) -> dict
 
 **Version:** 2.0.0
 **Last Updated:** 2026-03-25
-**Stack:** Go Echo + Oracle DB + Celery
+**Stack:** Go Echo + Oracle DB + Machinery

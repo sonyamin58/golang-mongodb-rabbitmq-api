@@ -21,7 +21,7 @@ services:
       retries: 5
       start_period: 300s
 
-  # Redis for caching and Celery broker
+  # Redis for caching and Machinery broker
   redis:
     image: redis:7-alpine
     container_name: golib-redis
@@ -43,12 +43,13 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: api
     container_name: golib-api
     environment:
       - DATABASE_HOST=oracle
       - REDIS_HOST=redis
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      - MACHINERY_BROKER=redis://redis:6379/0
+      - MACHINERY_RESULT_BACKEND=redis://redis:6379/1
     ports:
       - "8080:8080"
     depends_on:
@@ -61,59 +62,25 @@ services:
     volumes:
       - ./config.yaml:/app/config.yaml:ro
 
-  # Celery Worker
-  celery-worker:
+  # Machinery Worker
+  worker:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: golib-celery-worker
-    command: celery -A workers.celery_app worker --loglevel=info --concurrency=4
+      target: worker
+    container_name: golib-machinery-worker
     environment:
+      - DATABASE_HOST=oracle
       - REDIS_HOST=redis
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      - MACHINERY_BROKER=redis://redis:6379/0
+      - MACHINERY_RESULT_BACKEND=redis://redis:6379/1
     depends_on:
       - redis
+      - oracle
     networks:
       - golib-network
     volumes:
-      - ./workers:/app/workers:ro
-
-  # Celery Beat (Scheduler)
-  celery-beat:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: golib-celery-beat
-    command: celery -A workers.celery_app beat --loglevel=info
-    environment:
-      - REDIS_HOST=redis
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/1
-    depends_on:
-      - redis
-    networks:
-      - golib-network
-    volumes:
-      - ./workers:/app/workers:ro
-
-  # Flower (Celery monitoring)
-  flower:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: golib-flower
-    command: celery -A workers.celery_app flower --port=5555
-    environment:
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/1
-    ports:
-      - "5555:5555"
-    depends_on:
-      - redis
-      - celery-worker
-    networks:
-      - golib-network
+      - ./config.yaml:/app/config.yaml:ro
 
 networks:
   golib-network:

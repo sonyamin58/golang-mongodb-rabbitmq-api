@@ -134,7 +134,7 @@ Project ini adalah **Mini Bank** — Go monorepo service dengan arsitektur **Cle
 │   │
 │   ├── infrastructure/                # Lapisan HORIZONTAL — teknologi eksternal (shared)
 │   │   ├── db/
-│   │   │   └── postgres_client.go     # Koneksi PostgreSQL (utama untuk banking)
+│   │   │   └── oracle_client.go     # Koneksi Oracle DB (utama untuk banking)
 │   │   ├── cache/
 │   │   │   └── redis_client.go        # Session, token blacklist, rate limiter
 │   │   ├── messaging/
@@ -654,23 +654,23 @@ func (c *NotificationConsumer) handleTransactionCompleted(ctx context.Context, m
 **Lokasi**: `internal/infrastructure/repository/`
 
 - Implementasi konkret semua interface di `domain/repository.go`
-- Boleh import `database/sql`, `go.mongodb.org`, `redis`, dsb.
+- Boleh import `godror or gorm.io/driver/oracle`, `go.mongodb.org`, `redis`, dsb.
 - Tidak boleh diimport langsung oleh domain atau usecase
 
 ```go
 // Contoh: internal/infrastructure/repository/account_repo.go
 package repository
 
-// PostgresAccountRepo mengimplementasi account/domain.AccountRepository menggunakan PostgreSQL.
-type PostgresAccountRepo struct {
+// OracleAccountRepo mengimplementasi account/domain.AccountRepository menggunakan Oracle DB.
+type OracleAccountRepo struct {
     db *sql.DB
 }
 
-func NewPostgresAccountRepo(db *sql.DB) *PostgresAccountRepo {
-    return &PostgresAccountRepo{db: db}
+func NewOracleAccountRepo(db *sql.DB) *OracleAccountRepo {
+    return &OracleAccountRepo{db: db}
 }
 
-func (r *PostgresAccountRepo) UpdateBalance(ctx context.Context, id string, newBalance int64) error {
+func (r *OracleAccountRepo) UpdateBalance(ctx context.Context, id string, newBalance int64) error {
     _, err := r.db.ExecContext(ctx,
         `UPDATE accounts SET balance = $1, updated_at = NOW() WHERE id = $2`,
         newBalance, id,
@@ -749,7 +749,7 @@ package di
 
 func ProvideTransaction(c *AppContainer) {
     // Repository
-    c.TransactionRepo = repository.NewPostgresTransactionRepo(c.DB)
+    c.TransactionRepo = repository.NewOracleTransactionRepo(c.DB)
 
     // Use cases — inject interface, bukan concrete
     c.TransferUC = txusecase.NewTransferUseCase(
@@ -908,8 +908,8 @@ type UserRepository interface { ... }
 type AccountRepository interface { ... }
 
 // Implementasi konkret — prefix teknologi
-type PostgresUserRepo struct { ... }
-type PostgresAccountRepo struct { ... }
+type OracleUserRepo struct { ... }
+type OracleAccountRepo struct { ... }
 type RedisSessionRepo struct { ... }
 
 // Use case — suffix "UseCase"
@@ -975,7 +975,7 @@ PATCH  /settings/features      Toggle fitur (biometrik, dsb.) [JWT required]
 
 ## 10. Database Schema (Ringkasan)
 
-Gunakan **PostgreSQL**. Semua ID menggunakan `UUID`. Semua nilai uang dalam `BIGINT` (satuan sen).
+Gunakan **Oracle DB**. Semua ID menggunakan `NUMBER(20)`. Semua nilai uang dalam `NUMBER(18,2)` (satuan Rupiah).
 
 ```sql
 -- Auth

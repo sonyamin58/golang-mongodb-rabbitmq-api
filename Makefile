@@ -7,7 +7,8 @@ DOCKER_TAG=latest
 GO=go
 GOFLAGS=-v
 BUILD_DIR=./bin
-MAIN_FILE=./cmd/api/main.go
+API_MAIN=./cmd/api/main.go
+WORKER_MAIN=./cmd/worker/main.go
 
 # Colors
 RED   := \033[0;31m
@@ -22,7 +23,7 @@ deps: ## Download Go dependencies
 	$(GO) mod download
 	$(GO) mod tidy
 
-build: deps ## Build Go binary
+build: build-api build-worker
 	@mkdir -p $(BUILD_DIR)
 	$(GO) build $(GOFLAGS) -o $(BUILD_DIR)/api $(MAIN_FILE)
 	@echo "$(GREEN)Build successful: $(BUILD_DIR)/api$(NC)"
@@ -61,7 +62,7 @@ migrate-check: ## Check migration status
 	@sqlplus $(DB_USER)/$(DB_PASS)@$(DB_HOST):$(DB_PORT)/$(DB_SERVICE) @migrations/check.sql
 
 # Docker
-docker-build: ## Build Docker images
+docker-build: build-api build-worker
 	docker build --tag $(DOCKER_IMAGE):$(DOCKER_TAG) .
 
 docker-up: ## Start all services with docker-compose

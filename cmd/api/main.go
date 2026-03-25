@@ -12,6 +12,7 @@ import (
 
 	"github.com/ibas/golib-api/internal/config"
 	"github.com/ibas/golib-api/internal/handler"
+	"github.com/ibas/golib-api/internal/machinery"
 	"github.com/ibas/golib-api/internal/middleware"
 	"github.com/ibas/golib-api/internal/repository"
 	"github.com/ibas/golib-api/internal/service"
@@ -40,6 +41,16 @@ func main() {
 		log.Fatalf("Failed to connect to Redis: %v", err)
 	}
 
+	// Initialize Machinery client (optional - won't fail if Redis not available)
+	var machineryClient *machinery.AsyncClient
+	machineryServer, err := machinery.NewServer(cfg.Machinery.Broker, cfg.Machinery.ResultBackend)
+	if err != nil {
+		log.Printf("Warning: Failed to initialize Machinery server: %v", err)
+	} else {
+		machineryClient = machinery.NewAsyncClient(machineryServer)
+		log.Println("Machinery client initialized")
+	}
+
 	// Initialize repositories
 	userRepo := repository.NewUserRepository(db)
 	accountRepo := repository.NewAccountRepository(db)
@@ -48,7 +59,7 @@ func main() {
 	// Initialize services
 	authService := service.NewAuthService(userRepo, cfg)
 	accountService := service.NewAccountService(accountRepo, userRepo)
-	transactionService := service.NewTransactionService(transactionRepo, accountRepo)
+	transactionService := service.NewTransactionServiceWithMachinery(transactionRepo, accountRepo, machineryClient)
 
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(authService)

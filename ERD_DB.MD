@@ -158,7 +158,7 @@ type Transaction struct {
     ReferenceID        string         `gorm:"uniqueIndex;size:100" json:"reference_id,omitempty"`
     Note               string         `gorm:"size:500" json:"note,omitempty"`
     Status             string         `gorm:"size:20;default:pending;index" json:"status"`
-    CeleryTaskID       string         `gorm:"size:100;index" json:"celery_task_id,omitempty"`
+    MachineryTaskID       string         `gorm:"size:100;index" json:"machinery_task_id,omitempty"`
     CreatedAt          time.Time      `gorm:"index" json:"created_at"`
     UpdatedAt          time.Time      `json:"updated_at"`
     DeletedAt          gorm.DeletedAt `gorm:"index" json:"-"`
@@ -191,7 +191,7 @@ CREATE TABLE transactions (
     reference_id        VARCHAR2(100) UNIQUE,
     note                VARCHAR2(500),
     status              VARCHAR2(20) DEFAULT 'pending',
-    celery_task_id      VARCHAR2(100),
+    machinery_task_id      VARCHAR2(100),
     created_at          TIMESTAMP DEFAULT SYSTIMESTAMP,
     updated_at          TIMESTAMP DEFAULT SYSTIMESTAMP,
     CONSTRAINT chk_tx_type CHECK (transaction_type IN ('TOPUP', 'WITHDRAW', 'TRANSFER_IN', 'TRANSFER_OUT')),
@@ -209,7 +209,7 @@ CREATE INDEX idx_transactions_status ON transactions(status);
 CREATE INDEX idx_transactions_reference ON transactions(reference_id);
 CREATE INDEX idx_transactions_created_at ON transactions(created_at);
 CREATE INDEX idx_transactions_user_created ON transactions(user_id, created_at DESC);
-CREATE INDEX idx_transactions_celery_task ON transactions(celery_task_id);
+CREATE INDEX idx_transactions_machinery_task ON transactions(machinery_task_id);
 ```
 
 **Sample Rows:**
@@ -232,7 +232,7 @@ CREATE INDEX idx_transactions_celery_task ON transactions(celery_task_id);
   "sender_name": "John Doe",
   "reference_id": "TOPUP-20260325-001",
   "status": "completed",
-  "celery_task_id": "abc-123-xyz",
+  "machinery_task_id": "abc-123-xyz",
   "created_at": "2026-03-25T14:30:00Z"
 }
 ```
@@ -255,7 +255,7 @@ CREATE INDEX idx_transactions_celery_task ON transactions(celery_task_id);
   "reference_id": "TRF-20260325-001",
   "note": "Payment for lunch",
   "status": "completed",
-  "celery_task_id": "ghi-789-xyz",
+  "machinery_task_id": "ghi-789-xyz",
   "created_at": "2026-03-25T14:40:00Z"
 }
 ```
@@ -273,7 +273,7 @@ CREATE INDEX idx_transactions_celery_task ON transactions(celery_task_id);
 │ password_   │       │ number      │       │ type           │
 │ hash        │       │ balance     │       │ amount         │
 │ full_name   │       │ currency    │       │ status         │
-│ phone_      │       │ account_    │       │ celery_task_id │
+│ phone_      │       │ account_    │       │ machinery_task_id │
 │ number      │       │ type        │       │ reference_id   │
 │ role        │       │ is_active   │       │ created_at     │
 │ is_active   │       └─────────────┘       └─────────────────┘
@@ -292,11 +292,11 @@ CREATE SEQUENCE transactions_seq START WITH 1 INCREMENT BY 1 NOCACHE NOCYCLE;
 
 ---
 
-## Celery + Redis Structure
+## Machinery + Redis Structure
 
 ```
 Redis: redis://localhost:6379/0
-├── Broker for Celery tasks
+├── Broker for Machinery tasks
 └── Result backend: redis://localhost:6379/1
 
 Queues:
@@ -322,4 +322,4 @@ Queues:
 
 **Version:** 2.0.0
 **Last Updated:** 2026-03-25
-**Stack:** Go Echo + Oracle DB + Celery
+**Stack:** Go Echo + Oracle DB + Machinery

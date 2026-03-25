@@ -12,7 +12,7 @@ type Config struct {
 	Database   DatabaseConfig   `mapstructure:"database"`
 	Redis      RedisConfig      `mapstructure:"redis"`
 	JWT        JWTConfig        `mapstructure:"jwt"`
-	Celery     CeleryConfig     `mapstructure:"celery"`
+	Machinery  MachineryConfig  `mapstructure:"machinery"`
 	RateLimit  RateLimitConfig  `mapstructure:"rate_limit"`
 }
 
@@ -50,14 +50,10 @@ type JWTConfig struct {
 	RefreshExpiryHours int    `mapstructure:"refresh_expiry_hours"`
 }
 
-type CeleryConfig struct {
-	BrokerURL        string `mapstructure:"broker_url"`
-	ResultBackend    string `mapstructure:"result_backend"`
-	TaskSerializer   string `mapstructure:"task_serializer"`
-	ResultSerializer string `mapstructure:"result_serializer"`
-	AcceptContent    []string `mapstructure:"accept_content"`
-	Timezone         string `mapstructure:"timezone"`
-	EnableUTC        bool   `mapstructure:"enable_utc"`
+type MachineryConfig struct {
+	Broker        string `mapstructure:"broker"`
+	ResultBackend string `mapstructure:"result_backend"`
+	Concurrency   int    `mapstructure:"concurrency"`
 }
 
 type RateLimitConfig struct {

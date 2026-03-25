@@ -1,6 +1,6 @@
 # ============================================================
 # Multi-stage Dockerfile for Mini Bank API
-# Tech Stack: Go Echo + Oracle DB + Celery
+# Tech Stack: Go Echo + Oracle DB + Machinery (Go-native)
 # ============================================================
 
 # Stage 1: Go builder
@@ -18,11 +18,17 @@ RUN go mod download
 # Copy source code
 COPY . .
 
-# Build Go binary
+# Build API binary
 RUN CGO_ENABLED=0 GOOS=linux go build \
     -ldflags="-s -w" \
     -o /app/bin/api \
     ./cmd/api/main.go
+
+# Build Worker binary
+RUN CGO_ENABLED=0 GOOS=linux go build \
+    -ldflags="-s -w" \
+    -o /app/bin/worker \
+    ./cmd/worker/main.go
 
 # ============================================================
 
@@ -51,31 +57,19 @@ CMD ["./api"]
 
 # ============================================================
 
-# Stage 3: Python Celery worker image
-FROM python:3.11-slim AS worker
+# Stage 3: Go Worker image
+FROM alpine:3.19 AS worker
+
+RUN apk add --no-cache ca-certificates tzdata
 
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    libffi-dev \
-    libssl-dev \
-    redis-tools \
-    wget \
-    && rm -rf /var/lib/apt/lists/*
+# Copy binary from builder
+COPY --from=builder /app/bin/worker .
 
-# Copy requirements and install Python deps
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy config
+COPY config.yaml .
 
-# Copy worker code
-COPY workers/ ./workers/
-COPY cmd/worker/ ./cmd/worker/
-
-# Set Python path
-ENV PYTHONPATH=/app
-
-# Run Celery worker
-CMD ["python", "-m", "celery", "-A", "workers.celery_app", \
-     "worker", "--loglevel=info", "--concurrency=4"]
+# Run worker
+CMD ["./worker"]
+EOF; __hermes_rc=$?; printf '__HERMES_FENCE_a9f7b3__'; exit $__hermes_rc

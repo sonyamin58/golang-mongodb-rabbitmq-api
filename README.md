@@ -9,7 +9,7 @@ REST API untuk aplikasi Mini Bank dengan fitur Register, Login, Topup, Withdraw,
 | Framework | Go Echo v4 |
 | Database | Oracle DB |
 | ORM | GORM (Oracle driver) |
-| Message Broker | Celery + Redis |
+| Task Queue | Machinery (Go-native, Redis broker) |
 | Authentication | JWT (HS256) |
 
 ## Features
@@ -17,7 +17,7 @@ REST API untuk aplikasi Mini Bank dengan fitur Register, Login, Topup, Withdraw,
 - **Authentication**: Register, Login, JWT-based auth
 - **Account**: Check balance, Topup, Withdraw, Transfer
 - **Transactions**: History & detail dengan pagination
-- **Async Processing**: Celery workers untuk transaksi
+- **Async Processing**: Machinery workers (Go-native) untuk transaksi
 
 ## Quick Start
 
@@ -38,7 +38,7 @@ cp config.yaml config.local.yaml
 
 ### 2. Configure
 
-Edit `config.local.yaml` sesuai environment:
+Edit `config.local.yaml`:
 
 ```yaml
 database:
@@ -51,23 +51,26 @@ database:
 redis:
   host: "localhost"
   port: 6379
+
+machinery:
+  broker: "redis://localhost:6379/0"
+  result_backend: "redis://localhost:6379/1"
 ```
 
 ### 3. Run with Docker
 
 ```bash
-# Start Oracle DB + Redis + API + Celery
-docker-compose up -d
+# Start Oracle DB + Redis + API + Machinery Worker
+docker compose up -d
 
-# Run migrations
-docker-compose exec api /app/bin/api migrate
+# API will be available at http://localhost:8080
 ```
 
 ### 4. Run Locally (Development)
 
 ```bash
 # Start Oracle & Redis
-docker-compose up -d oracle redis
+docker compose up -d oracle redis
 
 # Install Go deps
 make deps
@@ -78,11 +81,8 @@ sqlplus system/oracle@localhost:1521/XE @migrations/001_init_schema.sql
 # Start API
 make run
 
-# Start Celery worker (new terminal)
-make celery-worker
-
-# Start Celery beat (new terminal)
-make celery-beat
+# Start Machinery worker (new terminal)
+make worker
 ```
 
 ## Project Structure
@@ -91,22 +91,19 @@ make celery-beat
 golang-mongodb-rabbitmq-api/
 ├── cmd/
 │   ├── api/main.go          # API entry point
-│   └── worker/main.py      # Celery worker entry point
+│   └── worker/main.go      # Machinery worker entry point
 ├── internal/
 │   ├── config/              # Configuration loading
 │   ├── handler/             # Echo HTTP handlers
-│   ├── middleware/         # JWT, rate limiting
+│   ├── machinery/           # Machinery tasks & client
+│   ├── middleware/          # JWT, rate limiting
 │   ├── model/               # Database models
 │   ├── repository/          # Data access layer
 │   ├── service/             # Business logic
-│   └── response/           # Standard response helpers
+│   └── response/            # Standard response helpers
 ├── pkg/
 │   ├── database/            # Oracle & Redis connections
-│   ├── celery/              # Celery task publisher
 │   └── validator/           # Input validation
-├── workers/
-│   ├── celery_app.py        # Celery app config
-│   └── tasks.py             # Async tasks
 ├── migrations/
 │   └── 001_init_schema.sql  # Oracle DDL scripts
 ├── api-design/
@@ -116,7 +113,7 @@ golang-mongodb-rabbitmq-api/
 ├── docker-compose.yml
 ├── Dockerfile
 ├── Makefile
-└── requirements.txt
+└── README.md
 ```
 
 ## API Endpoints
@@ -132,28 +129,17 @@ golang-mongodb-rabbitmq-api/
 | GET | /api/v1/transactions | Transaction history | Yes |
 | GET | /api/v1/transactions/:id | Transaction detail | Yes |
 
-## Development
-
-### Makefile Commands
+## Makefile Commands
 
 ```bash
 make deps          # Download dependencies
-make build         # Build binary
-make run           # Run API
+make build         # Build API binary
+make run           # Run API server
+make worker        # Run Machinery worker
 make test          # Run tests
 make lint          # Run linters
-make migrate       # Run migrations
-make docker-build  # Build Docker image
 make docker-up     # Start Docker services
-make celery-worker # Run Celery worker
-make celery-flower # Run Flower UI (port 5555)
-```
-
-### Testing
-
-```bash
-make test
-make test-coverage
+make docker-down   # Stop Docker services
 ```
 
 ## Documentation

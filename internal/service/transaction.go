@@ -7,14 +7,14 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ibas/golib-api/internal/machinery"
 	"github.com/ibas/golib-api/internal/model"
-	"github.com/ibas/golib-api/pkg/celery"
 )
 
 type TransactionService struct {
 	transactionRepo model.TransactionRepository
 	accountRepo     model.AccountRepository
-	celeryPublisher *celery.Publisher
+	machineryClient *machinery.AsyncClient
 }
 
 func NewTransactionService(transactionRepo model.TransactionRepository, accountRepo model.AccountRepository) *TransactionService {
@@ -24,11 +24,11 @@ func NewTransactionService(transactionRepo model.TransactionRepository, accountR
 	}
 }
 
-func NewTransactionServiceWithCelery(transactionRepo model.TransactionRepository, accountRepo model.AccountRepository, publisher *celery.Publisher) *TransactionService {
+func NewTransactionServiceWithMachinery(transactionRepo model.TransactionRepository, accountRepo model.AccountRepository, client *machinery.AsyncClient) *TransactionService {
 	return &TransactionService{
 		transactionRepo: transactionRepo,
 		accountRepo:     accountRepo,
-		celeryPublisher: publisher,
+		machineryClient: client,
 	}
 }
 
@@ -113,10 +113,18 @@ func (s *TransactionService) Create(req *CreateTransactionRequest) (*model.Trans
 		return nil, err
 	}
 
-	// Publish async task if Celery is configured
-	if s.celeryPublisher != nil {
+	// Send async task if Machinery client is configured
+	if s.machineryClient != nil {
 		go func() {
-			_ = s.celeryPublisher.PublishTransactionNotification(transaction.ID)
+			var taskErr error
+			if txType == model.TransactionTypeDeposit {
+				_, taskErr = s.machineryClient.SendTopupTask(transaction.ID)
+			} else {
+				_, taskErr = s.machineryClient.SendWithdrawTask(transaction.ID)
+			}
+			if taskErr != nil {
+				fmt.Printf("Failed to send async task: %v\n", taskErr)
+			}
 		}()
 	}
 
@@ -215,6 +223,16 @@ func (s *TransactionService) Transfer(req *TransferRequest) (*model.Transaction,
 	}
 	if err := s.accountRepo.Update(toAccount); err != nil {
 		return nil, nil, err
+	}
+
+	// Send async task if Machinery client is configured
+	if s.machineryClient != nil {
+		go func() {
+			_, err := s.machineryClient.SendTransferTask(fromTransaction.ID)
+			if err != nil {
+				fmt.Printf("Failed to send transfer task: %v\n", err)
+			}
+		}()
 	}
 
 	return fromTransaction, toTransaction, nil

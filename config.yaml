@@ -28,14 +28,10 @@ jwt:
   expiry_hours: 24
   refresh_expiry_hours: 168
 
-celery:
-  broker_url: "redis://localhost:6379/0"
+machinery:
+  broker: "redis://localhost:6379/0"
   result_backend: "redis://localhost:6379/1"
-  task_serializer: "json"
-  result_serializer: "json"
-  accept_content: ["json"]
-  timezone: "UTC"
-  enable_utc: true
+  concurrency: 4
 
 rate_limit:
   enabled: true
