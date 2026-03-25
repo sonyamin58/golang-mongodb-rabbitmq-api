@@ -19,3 +19,25 @@
 
 # Go workspace file
 go.work
+
+# Local config
+.env
+config.local.yaml
+
+# Build
+bin/
+*.exe
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Test
+coverage.out
+coverage.html
+
+# Celery
+celerybeat-schedule
+celerybeat.pid

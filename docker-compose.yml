@@ -1,0 +1,125 @@
+version: '3.8'
+
+services:
+  # Oracle Database XE
+  oracle:
+    image: container-registry.oracle.com/database/express:21.3.0-xe
+    container_name: golib-oracle
+    environment:
+      ORACLE_PWD: oracle
+    ports:
+      - "1521:1521"
+      - "5500:5500"
+    volumes:
+      - oracle-data:/opt/oracle/oradata
+    networks:
+      - golib-network
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "-t", "30"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 300s
+
+  # Redis for caching and Celery broker
+  redis:
+    image: redis:7-alpine
+    container_name: golib-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    networks:
+      - golib-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # Go API Server
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: golib-api
+    environment:
+      - DATABASE_HOST=oracle
+      - REDIS_HOST=redis
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+    ports:
+      - "8080:8080"
+    depends_on:
+      oracle:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - golib-network
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+
+  # Celery Worker
+  celery-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: golib-celery-worker
+    command: celery -A workers.celery_app worker --loglevel=info --concurrency=4
+    environment:
+      - REDIS_HOST=redis
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+    depends_on:
+      - redis
+    networks:
+      - golib-network
+    volumes:
+      - ./workers:/app/workers:ro
+
+  # Celery Beat (Scheduler)
+  celery-beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: golib-celery-beat
+    command: celery -A workers.celery_app beat --loglevel=info
+    environment:
+      - REDIS_HOST=redis
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+    depends_on:
+      - redis
+    networks:
+      - golib-network
+    volumes:
+      - ./workers:/app/workers:ro
+
+  # Flower (Celery monitoring)
+  flower:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: golib-flower
+    command: celery -A workers.celery_app flower --port=5555
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+    ports:
+      - "5555:5555"
+    depends_on:
+      - redis
+      - celery-worker
+    networks:
+      - golib-network
+
+networks:
+  golib-network:
+    driver: bridge
+
+volumes:
+  oracle-data:
+  redis-data:
+EOF; __hermes_rc=$?; printf '__HERMES_FENCE_a9f7b3__'; exit $__hermes_rc

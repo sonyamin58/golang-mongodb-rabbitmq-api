@@ -1,0 +1,3 @@
+# Go dependencies checksum file
+# Run: go mod tidy && go mod download
+# to generate this file automatically
